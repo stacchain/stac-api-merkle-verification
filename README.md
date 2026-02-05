@@ -17,6 +17,18 @@ This extension adds a **Data Integrity Layer** to the STAC API. It enables users
 
 It defines the standard for advertising **Merkle Roots** (at the Collection level) and serving **Inclusion Proofs** (at the Item level).
 
+### Conformance Advertisement
+Implementations MUST advertise support by including the URI in the Landing Page (`/`) `conformsTo` array:
+
+```json
+{
+  "conformsTo": [
+    "https://api.stacspec.org/v1.0.0/core",
+    "https://api.stacspec.org/v1.0.0-beta.1/merkle-verification"
+  ]
+}
+```
+
 ## Technical Implementation
 
 To ensure interoperability between different hashing implementations (e.g., Go, Python, Rust), strict adherence to canonicalization and hashing standards is required.
