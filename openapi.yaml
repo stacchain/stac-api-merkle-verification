@@ -1,0 +1,173 @@
+openapi: 3.0.3
+info:
+  title: STAC API Merkle Tree Verification Extension
+  version: 1.0.0-proposal
+  description: |
+    An extension that adds a **Data Integrity Layer** to the STAC API.
+    It enables users to cryptographically verify that geospatial assets have not 
+    been tampered with, corrupted, or swapped.
+paths:
+  # ----------------------------------------------------------------------
+  # 1. SERVER-SIDE VERIFICATION
+  # ----------------------------------------------------------------------
+  /collections/{collectionId}/items/{itemId}/verify:
+    parameters:
+      - $ref: '#/components/parameters/collectionId'
+      - $ref: '#/components/parameters/itemId'
+    get:
+      summary: Verify Item Integrity
+      description: |
+        Performs a server-side cryptographic check. The server retrieves the 
+        stored Merkle Proof, calculates the item's current hash, and traverses 
+        the tree to verify it matches the Collection's Merkle Root.
+      operationId: verifyItem
+      responses:
+        '200':
+          description: Verification check completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResult'
+        '404':
+          description: Item or Proof not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Data Integrity Mismatch (Verification Failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResult'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  parameters:
+    collectionId:
+      name: collectionId
+      in: path
+      description: The unique identifier of the collection
+      required: true
+      schema:
+        type: string
+    itemId:
+      name: itemId
+      in: path
+      description: The unique identifier of the item
+      required: true
+      schema:
+        type: string
+
+  schemas:
+    # --------------------------------------------------------------------
+    # STANDARD ERROR SCHEMA (RFC 7807 style)
+    # --------------------------------------------------------------------
+    Error:
+      type: object
+      required:
+        - code
+        - description
+      properties:
+        code:
+          type: string
+          description: Error code (e.g., 'item-not-found')
+        description:
+          type: string
+          description: Human readable description of the error
+      example:
+        code: "proof-not-found"
+        description: "No merkle-proof link found for item S2A_20240101."
+
+    # --------------------------------------------------------------------
+    # API RESPONSE SCHEMA
+    # --------------------------------------------------------------------
+    VerificationResult:
+      type: object
+      required:
+        - verified
+        - timestamp
+        - algorithm
+        - match_details
+      properties:
+        verified:
+          type: boolean
+          description: True if the item hash + proof traversal equals the Collection Root.
+        timestamp:
+          type: string
+          format: date-time
+        algorithm:
+          type: string
+          enum: [sha256]
+        match_details:
+          type: object
+          properties:
+            item_hash_match:
+              type: boolean
+            root_hash_match:
+              type: boolean
+      example:
+        verified: true
+        timestamp: "2026-02-05T10:00:00Z"
+        algorithm: "sha256"
+        match_details:
+          item_hash_match: true
+          root_hash_match: true
+    
+    # --------------------------------------------------------------------
+    # PROOF FILE SCHEMA
+    # --------------------------------------------------------------------
+    MerkleProof:
+      type: object
+      required:
+        - type
+        - version
+        - leaf_hash
+        - root_hash
+        - index
+        - total_leaves
+        - siblings
+      properties:
+        type:
+          type: string
+          enum: [MerkleProof]
+        version:
+          type: string
+        leaf_hash:
+          type: string
+        root_hash:
+          type: string
+        index:
+          type: integer
+        total_leaves:
+          type: integer
+        siblings:
+          type: array
+          items:
+            type: object
+            required:
+              - hash
+              - direction
+            properties:
+              hash:
+                type: string
+              direction:
+                type: string
+                enum: [left, right]
+      example:
+        type: "MerkleProof"
+        version: "1.0.0"
+        leaf_hash: "8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4"
+        root_hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        index: 4
+        total_leaves: 15
+        siblings:
+          - hash: "a1b2c3d4..."
+            direction: "right"
+          - hash: "c5d6e7f8..."
+            direction: "left"
